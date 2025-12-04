@@ -40,6 +40,7 @@ export const sendQRCode = async (req: Request, res: Response) => {
 export const uploadCSVFile = async (req: Request, res: Response) => {
   try {
     const file = req.file;
+    console.log("file",req.file)
     if (!file) {
       return customResponse({
         res,
