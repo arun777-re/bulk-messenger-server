@@ -1,4 +1,5 @@
 import express from 'express';
+import fs from 'fs'
 import cors from 'cors';
 import path from 'path';
 import csvRoutes from './routes/csv.route';
@@ -7,9 +8,14 @@ import messageRoutes from './routes/sendMessage';
 
 const app = express();
 
+const uploadDir = path.join(process.cwd(), 'uploads');
+if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.use(cors().bind([process.env.FRONTEND_URL || "http://localhost:3000"]));
+app.use(cors({
+    origin:process.env.FRONTEND_URL || "http://localhost:3000"
+}));
 
 // Static files
 app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
