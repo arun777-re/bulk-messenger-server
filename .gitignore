@@ -1,1 +1,31 @@
-node_modules
+# Node
+node_modules/
+npm-debug.log
+yarn-debug.log
+yarn-error.log
+package-lock.json
+auth/
+
+# TypeScript
+dist/
+build/
+*.tsbuildinfo
+
+# Env files
+.env
+.env.*
+!.env.example
+
+# Logs
+logs
+*.log
+logs/*.log
+
+# IDE folders
+.vscode/
+.idea/
+
+# Temporary
+temp/
+tmp/
+.DS_Store
