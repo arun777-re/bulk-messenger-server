@@ -1,26 +1,42 @@
 import { AuthModel } from "../model/Auth";
 
-export let LATEST_QR:string | null = null;
-export const setQR = (qr:string)=>(LATEST_QR = qr);
+export let LATEST_QR: string | null = null;
+export const setQR = (qr: string) => (LATEST_QR = qr);
 
+export const useMongoAuthState = async () => {
+  const docs = await AuthModel.find().lean();
 
-
-export const useMongoAuthState = async()=>{
-    const creds = await AuthModel.find().lean();
-
-    let state:any = {creds:{
-           me:undefined
+  const state: any = {
+    creds: {
+      me: undefined, // Baileys will populate this after scanning QR
     },
-       keys:{},
- };
-    creds.forEach((c) => (state[c.key] = c.value));
+    keys: {}, // MUST be "keys"
+  };
 
-    const saveCreds = async ()=>{
-        const entries = Object.entries(state);
-        for(let [key,value] of entries){
-            await AuthModel.findOneAndUpdate({key},{value},{upsert:true});
-        }
-    };
+  // load records from DB
+  docs.forEach((doc) => {
+    if (doc.key === "creds") {
+      state.creds = doc.value;
+    } else if (doc.key === "keys") {
+      state.keys = doc.value;
+    } else {
+      state[doc.key] = doc.value;
+    }
+  });
 
-    return {state,saveCreds};
-}
+  const saveCreds = async () => {
+    await AuthModel.findOneAndUpdate(
+      { key: "creds" },
+      { value: state.creds },
+      { upsert: true }
+    );
+
+    await AuthModel.findOneAndUpdate(
+      { key: "keys" },
+      { value: state.keys },
+      { upsert: true }
+    );
+  };
+
+  return { state, saveCreds };
+};
