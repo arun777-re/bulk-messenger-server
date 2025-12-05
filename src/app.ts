@@ -1,3 +1,6 @@
+import dotenv from 'dotenv';
+dotenv.config();
+
 import express from 'express';
 import fs from 'fs'
 import cors from 'cors';
@@ -5,8 +8,12 @@ import path from 'path';
 import csvRoutes from './routes/csv.route';
 import authRoutes from './routes/auth';
 import messageRoutes from './routes/sendMessage';
+import { connectDB } from './middleware/mongo';
 
 const app = express();
+
+// db connection 
+connectDB();
 
 const uploadDir = path.join(process.cwd(), 'uploads');
 if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
