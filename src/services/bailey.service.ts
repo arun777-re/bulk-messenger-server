@@ -25,11 +25,11 @@ export class BaileysService {
 
     const { version } = await fetchLatestBaileysVersion();
     const {state,saveCreds} = await useMongoAuthState();
+    console.log("state veere ",state)
 
     sock = makeWASocket({
       auth: state,
       version,
-   
       printQRInTerminal: false,
       browser: ["Desktop", "Chrome", "10"],
       syncFullHistory: false,

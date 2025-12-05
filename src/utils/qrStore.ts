@@ -6,7 +6,6 @@ export const setQR = (qr:string)=>(LATEST_QR = qr);
 
 
 export const useMongoAuthState = async()=>{
-    await AuthModel.deleteMany({})
     const creds = await AuthModel.find().lean();
 
     let state:any = {creds:{},
