@@ -1,6 +1,8 @@
 import { ConnectionState } from "@whiskeysockets/baileys";
 import QRCode from "qrcode";
-import { setQR } from "../utils/qrStore";
+import mongoose from "mongoose";
+import { setQR, useMongoAuthState } from "../utils/qrStore";
+import { connectDB } from "../middleware/mongo";
 
 let sock: any = null;
 let ready = false; // WhatsApp connected state
@@ -8,7 +10,10 @@ let reconnecting = false;
 
 export class BaileysService {
   async connectWhatsApp() {
-    if (reconnecting) return;
+    if(reconnecting) return;
+    if (mongoose.connection.readyState === 0) {
+        await connectDB();
+    };
     reconnecting = true;
     ready = false;
 
@@ -16,10 +21,10 @@ export class BaileysService {
 
     const baileys = await import("@whiskeysockets/baileys");
     const makeWASocket = baileys.default;
-    const { useMultiFileAuthState, fetchLatestBaileysVersion } = baileys;
+    const { fetchLatestBaileysVersion } = baileys;
 
     const { version } = await fetchLatestBaileysVersion();
-    const { state, saveCreds } = await useMultiFileAuthState("auth");
+    const {state,saveCreds} = await useMongoAuthState();
 
     sock = makeWASocket({
       auth: state,
@@ -45,6 +50,7 @@ export class BaileysService {
         ready = true;
         reconnecting = false;
         console.log(" WhatsApp Connected");
+        setQR('');
       }
 
       if (connection === "close") {
@@ -71,7 +77,7 @@ export class BaileysService {
         await this.connectWhatsApp();
 
         // Wait until connected
-        while (!ready) await new Promise((r) => setTimeout(r, 1000));
+        while (!sock || !ready) await new Promise((r) => setTimeout(r, 500));
       }
 
       await sock.sendMessage(`${phone}@s.whatsapp.net`, { text: msg });
@@ -82,3 +88,14 @@ export class BaileysService {
     }
   }
 }
+
+
+process.on("SIGINT",() => {
+  console.log("Closing WhatsApp socket...");
+  try {
+    sock?.ws?.close();
+  } catch (err) {
+    console.log("Socket close error:",err);
+  }
+  process.exit(0);
+});
