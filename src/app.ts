@@ -1,7 +1,6 @@
 
 
 import express from 'express';
-import cors from 'cors';
 import dotenv from 'dotenv';
 dotenv.config();
 import fs from 'fs';
@@ -13,12 +12,27 @@ import { connectDB } from './middleware/mongo';
 
 
 const app = express();
-app.use(cors({origin:["https://wtsapp-bulk-message-sender.vercel.app", "http://localhost:3000"],
-  methods:["GET","POST","PUT","DELETE","PATCH"],
-  credentials:true,
-}));
 
-app.options("*",cors());
+const allowedOrigins = [
+  "https://wtsapp-bulk-message-sender.vercel.app",
+  "http://localhost:3000",
+];
+
+// middleware to setHeaders in place ofcourse
+app.use((req, res, next) => {
+  const origin = req.headers.origin as string | undefined;
+  if (origin && allowedOrigins.includes(origin)) {
+    res.setHeader("Access-Control-Allow-Origin", origin);
+  }else{
+    res.setHeader("Access-Control-Allow-Origin","");
+  }
+  res.setHeader("Access-Control-Allow-Credentials", "true");
+  res.setHeader("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,PATCH");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+  if (req.method === "OPTIONS") return res.sendStatus(200);
+  next();
+});
+
 
 // db connection 
 connectDB();
