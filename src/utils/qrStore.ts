@@ -1,42 +1,52 @@
 import { AuthModel } from "../model/Auth";
+import { AuthenticationCreds, SignalDataTypeMap } from "@whiskeysockets/baileys";
 
-export let LATEST_QR: string | null = null;
-export const setQR = (qr: string) => (LATEST_QR = qr);
+
+export let LATEST_QR:string | null = null;
+export const setQR = (qr:string)=>(LATEST_QR = qr);
+
+
+
 
 export const useMongoAuthState = async () => {
-  const docs = await AuthModel.find().lean();
+  // Load creds
+  const credsDoc = await AuthModel.findOne({ id: "creds" }).lean();
+  const creds: AuthenticationCreds = credsDoc?.data || null;
 
   const state: any = {
-    creds: {
-      me: undefined, // Baileys will populate this after scanning QR
-    },
-    keys: {}, // MUST be "keys"
-  };
+    creds,
+    keys: {
+      get: async (type: keyof SignalDataTypeMap, ids: string[]) => {
+        const data: any = {};
+        for (const id of ids) {
+          const found = await AuthModel.findOne({ id:`${type}-${id}` }).lean();
+          data[id] = found?.data || null
+        }
+        return data;
+      },
 
-  // load records from DB
-  docs.forEach((doc) => {
-    if (doc.key === "creds") {
-      state.creds = doc.value;
-    } else if (doc.key === "keys") {
-      state.keys = doc.value;
-    } else {
-      state[doc.key] = doc.value;
+      set: async (data: any) => {
+        for (const category of Object.keys(data)) {
+          for (const id of Object.keys(data[category])) {
+            const value = data[category][id];
+            await AuthModel.findOneAndUpdate(
+              { id: `${category}-${id}` },
+              { data: value },
+              { upsert: true }
+            );
+          }
+        }
+      }
     }
-  });
+  };
 
   const saveCreds = async () => {
     await AuthModel.findOneAndUpdate(
-      { key: "creds" },
-      { value: state.creds },
-      { upsert: true }
-    );
-
-    await AuthModel.findOneAndUpdate(
-      { key: "keys" },
-      { value: state.keys },
+      { id: "creds" },
+      { data: state.creds },
       { upsert: true }
     );
   };
 
-  return { state, saveCreds };
+  return { state, saveCreds };
 };

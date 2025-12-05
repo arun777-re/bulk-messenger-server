@@ -3,6 +3,7 @@ import QRCode from "qrcode";
 import mongoose from "mongoose";
 import { setQR, useMongoAuthState } from "../utils/qrStore";
 import { connectDB } from "../middleware/mongo";
+import { AuthModel } from "../model/Auth";
 
 let sock: any = null;
 let ready = false; // WhatsApp connected state
@@ -10,7 +11,6 @@ let reconnecting = false;
 
 export class BaileysService {
   async connectWhatsApp() {
-    if(reconnecting) return;
     if (mongoose.connection.readyState === 0) {
         await connectDB();
     };
@@ -45,6 +45,12 @@ export class BaileysService {
         console.log("QR Generated");
         const qrBase64 = await QRCode.toDataURL(qr);
         setQR(qrBase64);
+         await AuthModel.findOneAndUpdate(
+        { id: "LATEST_QR" },
+        { data: qrBase64 },
+        { upsert: true }
+      );
+
       }
 
       if (connection === "open") {
@@ -56,6 +62,7 @@ export class BaileysService {
 
       if (connection === "close") {
         ready = false;
+        reconnecting = false;
         const reason =
           (lastDisconnect?.error as any)?.output?.statusCode ||
           (lastDisconnect?.error as any)?.output?.payload?.statusCode;
@@ -78,7 +85,11 @@ export class BaileysService {
         await this.connectWhatsApp();
 
         // Wait until connected
-        while (!sock || !ready) await new Promise((r) => setTimeout(r, 500));
+        let retries = 0;
+
+        while ((!sock || !ready ) && retries < 20) {await new Promise((r) => setTimeout(r, 500));
+          retries++;
+        }
       }
 
       await sock.sendMessage(`${phone}@s.whatsapp.net`, { text: msg });
