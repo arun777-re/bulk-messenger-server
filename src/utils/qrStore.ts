@@ -1,5 +1,5 @@
 import { AuthModel } from "../model/Auth";
-import { AuthenticationCreds, initAuthCreds, SignalDataTypeMap } from "@whiskeysockets/baileys";
+import { AuthenticationCreds, SignalDataTypeMap } from "@whiskeysockets/baileys";
 
 
 export let LATEST_QR:string | null = null;
@@ -9,6 +9,8 @@ export const setQR = (qr:string)=>(LATEST_QR = qr);
 
 
 export const useMongoAuthState = async () => {
+  const baileys = await import("@whiskeysockets/baileys");
+  const initAuthCreds = baileys.initAuthCreds;
   // Load creds
   const credsDoc = await AuthModel.findOne({ id: "creds" }).lean();
   let creds: AuthenticationCreds;
