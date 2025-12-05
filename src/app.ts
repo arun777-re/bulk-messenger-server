@@ -13,8 +13,7 @@ if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.use(cors({
-    origin:process.env.FRONTEND_URL || "http://localhost:3000"
+app.use(cors({origin:["https://wtsapp-bulk-message-sender.vercel.app", "http://localhost:3000"]
 }));
 
 // Static files
