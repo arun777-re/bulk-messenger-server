@@ -30,7 +30,7 @@ export class BaileysService {
     sock = makeWASocket({
       auth: state,
       version,
-      printQRInTerminal: false,
+      printQRInTerminal:true,
       browser: ["Desktop", "Chrome", "10"],
       syncFullHistory: false,
       markOnlineOnConnect: true,

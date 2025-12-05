@@ -8,9 +8,11 @@ export const setQR = (qr:string)=>(LATEST_QR = qr);
 export const useMongoAuthState = async()=>{
     const creds = await AuthModel.find().lean();
 
-    let state:any = {creds:{},
-       key:{},
-    me:undefined};
+    let state:any = {creds:{
+           me:undefined
+    },
+       keys:{},
+ };
     creds.forEach((c) => (state[c.key] = c.value));
 
     const saveCreds = async ()=>{
