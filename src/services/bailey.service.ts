@@ -67,6 +67,10 @@ export class BaileysService {
           (lastDisconnect?.error as any)?.output?.statusCode ||
           (lastDisconnect?.error as any)?.output?.payload?.statusCode;
         console.log(" Disconnected:", reason);
+        if(reason === 401){
+          console.log("session invalid deleting creds from db")
+          await AuthModel.deleteMany();
+        }
         setTimeout(() => this.connectWhatsApp(), 3000);
       }
     });
