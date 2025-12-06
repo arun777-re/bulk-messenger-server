@@ -31,7 +31,15 @@ export const useMongoAuthState = async () => {
         const data: any = {};
         for (const id of ids) {
           const found = await AuthModel.findOne({ id:`${type}-${id}` }).lean();
-          data[id] = found?.data || null
+          let value = found?.data || null;
+
+        //   convert mongo binary to buffer/uint8Array
+        if(value && value.type === "Buffer" && value.data){
+            value = Buffer.from(value.data);
+        }else if(value && value.__bsontype === "Binary" && value.buffer){
+           value = Buffer.from(value.buffer)
+        }
+        data[id] = value;
         }
         return data;
       },
