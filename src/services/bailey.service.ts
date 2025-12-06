@@ -40,7 +40,9 @@ export class BaileysService {
 
     sock.ev.on("connection.update", async (update: ConnectionState) => {
       const { connection, qr, lastDisconnect } = update;
-
+console.log("hello logs1",connection)
+console.log("hello logs2",qr)
+console.log("hello logs1",lastDisconnect)
       if (qr) {
         console.log("QR Generated");
         const qrBase64 = await QRCode.toDataURL(qr);
