@@ -1,5 +1,6 @@
 import { AuthModel } from "../model/Auth";
 import { AuthenticationCreds, SignalDataTypeMap } from "@whiskeysockets/baileys";
+import { fixBinaryToBuffer } from "./mongoAuth";
 
 
 export let LATEST_QR:string | null = null;
@@ -22,6 +23,7 @@ export const useMongoAuthState = async () => {
    })
   }else{
     creds = credsDoc.data;
+    creds = fixBinaryToBuffer(credsDoc.data);
   }
 
   const state: any = {
@@ -34,11 +36,7 @@ export const useMongoAuthState = async () => {
           let value = found?.data || null;
 
         //   convert mongo binary to buffer/uint8Array
-        if(value && value.type === "Buffer" && value.data){
-            value = Buffer.from(value.data);
-        }else if(value && value.__bsontype === "Binary" && value.buffer){
-           value = Buffer.from(value.buffer)
-        }
+            value = fixBinaryToBuffer(value);
         data[id] = value;
         }
         return data;
@@ -62,7 +60,7 @@ export const useMongoAuthState = async () => {
   const saveCreds = async () => {
     await AuthModel.findOneAndUpdate(
       { id: "creds" },
-      { data: state.creds },
+      { data:JSON.parse(JSON.stringify(state.creds)) },
       { upsert: true }
     );
   };
