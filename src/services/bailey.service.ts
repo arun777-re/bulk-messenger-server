@@ -49,6 +49,7 @@ export class BaileysService {
         printQRInTerminal: false,
         browser: ["Chrome","Desktop",  "10"],
         syncFullHistory: false,
+        waWebSocketUrl:"wss://web.whatsapp.com/ws/chat",
         markOnlineOnConnect: true,
       });
 
