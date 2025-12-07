@@ -47,7 +47,7 @@ export class BaileysService {
         auth: state,
         version,
         printQRInTerminal: false,
-        browser: ["Desktop", "Chrome", "10"],
+        browser: ["Chrome","Desktop",  "10"],
         syncFullHistory: false,
         markOnlineOnConnect: true,
       });
@@ -58,7 +58,7 @@ export class BaileysService {
         const { connection, qr, lastDisconnect } = update;
         console.log("hello logs1", connection);
         console.log("hello logs2", !!qr);
-        console.log("hello logs1 lastDisconnect", !!lastDisconnect);
+        console.log("hello logs3 lastDisconnect", !!lastDisconnect);
 
         if (qr) {
           console.log("QR Generated");
