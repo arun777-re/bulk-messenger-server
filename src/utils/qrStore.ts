@@ -1,6 +1,10 @@
+// utils/mongoAuth.ts
 import { AuthModel } from "../model/Auth";
-import { AuthenticationCreds, SignalDataTypeMap } from "@whiskeysockets/baileys";
-import { fixBinaryToBuffer } from "./mongoAuth";
+import {
+  AuthenticationCreds,
+  SignalDataTypeMap,
+} from "@whiskeysockets/baileys";
+import { fixBinaryToBuffer, tryBase64ToBufferIfValid } from "./mongoAuth";
 
 export let LATEST_QR: string | null = null;
 export const setQR = (qr: string) => (LATEST_QR = qr);
@@ -9,21 +13,22 @@ export const useMongoAuthState = async () => {
   const baileys = await import("@whiskeysockets/baileys");
   const initAuthCreds = baileys.initAuthCreds;
 
-  // Load creds doc
+  // load creds doc
   const credsDoc = await AuthModel.findOne({ id: "creds" }).lean();
   let creds: AuthenticationCreds;
 
   if (!credsDoc?.data) {
     creds = initAuthCreds();
-    await AuthModel.create({ id: "creds", data: JSON.parse(JSON.stringify(creds)) });
+    // Save initial creds as base64-serializable
+    const serialized = JSON.parse(JSON.stringify(creds));
+    await AuthModel.create({ id: "creds", data: serialized });
   } else {
-    // convert any stored base64 or BSON -> Buffer where needed
+    // Convert stored data back to Buffer where appropriate (including base64 strings)
     const loaded = credsDoc.data;
-    // if saved as base64 strings inside, convert where appropriate (we'll handle during save)
     creds = fixBinaryToBuffer(loaded) as AuthenticationCreds;
   }
 
-  // Helper to convert Buffer/Uint8Array -> base64 recursively
+  // Helper: convert Buffer/Uint8Array -> base64 recursively
   const bufferToBase64Serializable = (obj: any): any => {
     if (obj === null || obj === undefined) return obj;
     if (Buffer.isBuffer(obj) || obj instanceof Uint8Array) {
@@ -32,27 +37,29 @@ export const useMongoAuthState = async () => {
     if (Array.isArray(obj)) return obj.map(bufferToBase64Serializable);
     if (typeof obj === "object") {
       const out: any = {};
-      for (const [k, v] of Object.entries(obj)) out[k] = bufferToBase64Serializable(v);
+      for (const [k, v] of Object.entries(obj))
+        out[k] = bufferToBase64Serializable(v);
       return out;
     }
     return obj;
   };
 
+  // state shape for Baileys
   const state: any = {
     creds,
     keys: {
+      // type is like "pre-key", ids are [ "<wid>" ] etc.
       get: async (type: keyof SignalDataTypeMap, ids: string[]) => {
         const data: Record<string, any> = {};
         for (const id of ids) {
           const doc = await AuthModel.findOne({ id: `${type}-${id}` }).lean();
           let value = doc?.data ?? null;
 
-          // If saved as base64 string -> convert to Buffer
+          // if saved as base64 string -> convert to Buffer
           if (typeof value === "string") {
-            try {
-              value = Buffer.from(value, "base64");
-            } catch {
-              // leave as-is
+            const maybeBuf = tryBase64ToBufferIfValid(value);
+            if (maybeBuf) {
+              value = maybeBuf;
             }
           } else {
             // handle nested structures and BSON Binary
@@ -94,8 +101,7 @@ export const useMongoAuthState = async () => {
       { data: clean },
       { upsert: true }
     );
-    // debug log to ensure saving happened
-    console.log("🔥 saved creds to mongo");
+    console.log(" saved creds to mongo");
   };
 
   return { state, saveCreds };
