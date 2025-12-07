@@ -2,42 +2,64 @@ import { AuthModel } from "../model/Auth";
 import { AuthenticationCreds, SignalDataTypeMap } from "@whiskeysockets/baileys";
 import { fixBinaryToBuffer } from "./mongoAuth";
 
-
-export let LATEST_QR:string | null = null;
-export const setQR = (qr:string)=>(LATEST_QR = qr);
-
-
-
+export let LATEST_QR: string | null = null;
+export const setQR = (qr: string) => (LATEST_QR = qr);
 
 export const useMongoAuthState = async () => {
   const baileys = await import("@whiskeysockets/baileys");
   const initAuthCreds = baileys.initAuthCreds;
-  // Load creds
+
+  // Load creds doc
   const credsDoc = await AuthModel.findOne({ id: "creds" }).lean();
   let creds: AuthenticationCreds;
-  if(!credsDoc || !credsDoc?.data){
-   creds = initAuthCreds();
-   await AuthModel.create({
-    id:"creds",
-    data:creds
-   })
-  }else{
-    creds = credsDoc.data;
-    creds = fixBinaryToBuffer(credsDoc.data);
+
+  if (!credsDoc?.data) {
+    creds = initAuthCreds();
+    await AuthModel.create({ id: "creds", data: JSON.parse(JSON.stringify(creds)) });
+  } else {
+    // convert any stored base64 or BSON -> Buffer where needed
+    const loaded = credsDoc.data;
+    // if saved as base64 strings inside, convert where appropriate (we'll handle during save)
+    creds = fixBinaryToBuffer(loaded) as AuthenticationCreds;
   }
+
+  // Helper to convert Buffer/Uint8Array -> base64 recursively
+  const bufferToBase64Serializable = (obj: any): any => {
+    if (obj === null || obj === undefined) return obj;
+    if (Buffer.isBuffer(obj) || obj instanceof Uint8Array) {
+      return Buffer.from(obj).toString("base64");
+    }
+    if (Array.isArray(obj)) return obj.map(bufferToBase64Serializable);
+    if (typeof obj === "object") {
+      const out: any = {};
+      for (const [k, v] of Object.entries(obj)) out[k] = bufferToBase64Serializable(v);
+      return out;
+    }
+    return obj;
+  };
 
   const state: any = {
     creds,
     keys: {
       get: async (type: keyof SignalDataTypeMap, ids: string[]) => {
-        const data: any = {};
+        const data: Record<string, any> = {};
         for (const id of ids) {
-          const found = await AuthModel.findOne({ id:`${type}-${id}` }).lean();
-          let value = found?.data || null;
+          const doc = await AuthModel.findOne({ id: `${type}-${id}` }).lean();
+          let value = doc?.data ?? null;
 
-        //   convert mongo binary to buffer/uint8Array
+          // If saved as base64 string -> convert to Buffer
+          if (typeof value === "string") {
+            try {
+              value = Buffer.from(value, "base64");
+            } catch {
+              // leave as-is
+            }
+          } else {
+            // handle nested structures and BSON Binary
             value = fixBinaryToBuffer(value);
-        data[id] = value;
+          }
+
+          data[id] = value;
         }
         return data;
       },
@@ -45,7 +67,14 @@ export const useMongoAuthState = async () => {
       set: async (data: any) => {
         for (const category of Object.keys(data)) {
           for (const id of Object.keys(data[category])) {
-            const value = data[category][id];
+            let value = data[category][id];
+            // Convert Buffer / Uint8Array -> base64 string for storage
+            if (Buffer.isBuffer(value) || value instanceof Uint8Array) {
+              value = Buffer.from(value).toString("base64");
+            } else {
+              // if object possibly containing buffers, serialize safely
+              value = bufferToBase64Serializable(value);
+            }
             await AuthModel.findOneAndUpdate(
               { id: `${category}-${id}` },
               { data: value },
@@ -53,17 +82,21 @@ export const useMongoAuthState = async () => {
             );
           }
         }
-      }
-    }
+      },
+    },
   };
 
   const saveCreds = async () => {
+    // Convert any Buffer fields inside creds to base64 strings
+    const clean = bufferToBase64Serializable(state.creds);
     await AuthModel.findOneAndUpdate(
       { id: "creds" },
-      { data:JSON.parse(JSON.stringify(state.creds)) },
+      { data: clean },
       { upsert: true }
     );
+    // debug log to ensure saving happened
+    console.log("🔥 saved creds to mongo");
   };
 
-  return { state, saveCreds };
+  return { state, saveCreds };
 };
